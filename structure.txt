@@ -1,0 +1,195 @@
+Folder PATH listing for volume Extra
+Volume serial number is 0000006E 90B3:FE32
+F:\SOFTWARE\MY APPS\MEDICAL LOGBOOK\MEDORATRIAL3\SRC
+|   App.css
+|   App.tsx
+|   index.css
+|   main.tsx
+|   vite-env.d.ts
+|   
++---components
+|   |   AboutSheet.tsx
+|   |   AILanguageSheet.tsx
+|   |   AIModelSheet.tsx
+|   |   AIProviderSheet.tsx
+|   |   APIKeySheet.tsx
+|   |   AppShell.tsx
+|   |   BackupSettingsSheet.tsx
+|   |   CreateBackupSheet.tsx
+|   |   DateFormatSheet.tsx
+|   |   DefaultHospitalSheet.tsx
+|   |   ExportSheet.tsx
+|   |   FontSizeSheet.tsx
+|   |   GDriveBackupSheet.tsx
+|   |   GoogleAccountSheet.tsx
+|   |   ImageHandlingSheet.tsx
+|   |   ManageHospitalsSheet.tsx
+|   |   NavLink.tsx
+|   |   ProgressSheet.tsx
+|   |   RestoreBackupSheet.tsx
+|   |   SettingsExportSheet.tsx
+|   |   SyncFrequencySheet.tsx
+|   |   SyncProgressSheet.tsx
+|   |   ThemeColorSheet.tsx
+|   |   
+|   +---case-detail
+|   |       AddInvestigationSheet.tsx
+|   |       AddManagementSheet.tsx
+|   |       AddProgressNoteSheet.tsx
+|   |       
+|   \---ui
+|           accordion.tsx
+|           alert-dialog.tsx
+|           alert.tsx
+|           aspect-ratio.tsx
+|           avatar.tsx
+|           badge.tsx
+|           breadcrumb.tsx
+|           button.tsx
+|           calendar.tsx
+|           card.tsx
+|           carousel.tsx
+|           chart.tsx
+|           checkbox.tsx
+|           collapsible.tsx
+|           command.tsx
+|           context-menu.tsx
+|           dialog.tsx
+|           drawer.tsx
+|           dropdown-menu.tsx
+|           form.tsx
+|           hover-card.tsx
+|           input-otp.tsx
+|           input.tsx
+|           label.tsx
+|           menubar.tsx
+|           navigation-menu.tsx
+|           pagination.tsx
+|           popover.tsx
+|           progress.tsx
+|           radio-group.tsx
+|           resizable.tsx
+|           scroll-area.tsx
+|           select.tsx
+|           separator.tsx
+|           sheet.tsx
+|           sidebar.tsx
+|           skeleton.tsx
+|           slider.tsx
+|           sonner.tsx
+|           switch.tsx
+|           table.tsx
+|           tabs.tsx
+|           textarea.tsx
+|           toast.tsx
+|           toaster.tsx
+|           toggle-group.tsx
+|           toggle.tsx
+|           tooltip.tsx
+|           use-toast.ts
+|           
++---hooks
+|       use-mobile.tsx
+|       use-toast.ts
+|       useAsync.ts
+|       
++---lib
+|   |   applySettings.ts
+|   |   compressImage.ts
+|   |   useContentSize.ts
+|   |   useDateFormat.ts
+|   |   utils.ts
+|   |   
+|   \---export
+|       |   fileHelpers.ts
+|       |   types.ts
+|       |   
+|       +---case
+|       |       CaseExportSheet.tsx
+|       |       generateCaseClinicalPDF.ts
+|       |       generateCaseExcel.ts
+|       |       generateCasePlainPDF.ts
+|       |       generateCaseWord.ts
+|       |       
+|       +---course
+|       |       CourseExportSheet.tsx
+|       |       generateCourseClinicalPDF.ts
+|       |       generateCourseExcel.ts
+|       |       generateCoursePlainPDF.ts
+|       |       generateCourseWord.ts
+|       |       
+|       +---lecture
+|       |       generateLectureClinicalPDF.ts
+|       |       generateLectureExcel.ts
+|       |       generateLecturePlainPDF.ts
+|       |       generateLectureWord.ts
+|       |       LectureExportSheet.tsx
+|       |       
+|       \---procedure
+|               generateProcedureClinicalPDF.ts
+|               generateProcedureExcel.ts
+|               generateProcedurePlainPDF.ts
+|               generateProcedureWord.ts
+|               ProcedureExportSheet.tsx
+|               
++---pages
+|       AddHospitalScreen.tsx
+|       CaseDetailScreen.tsx
+|       CasesScreen.tsx
+|       CasesScreen.tsx.bak
+|       CoursesScreen.tsx
+|       EditPatientScreen.tsx
+|       GroupPearlScreen.tsx
+|       HospitalPatientsScreen.tsx
+|       Index.tsx
+|       LecturesScreen.tsx
+|       LogbookScreen.tsx
+|       MediaGalleryScreen.tsx
+|       NewCaseScreen.tsx
+|       NotFound.tsx
+|       PatientDetailScreen.tsx
+|       PatientsScreen.tsx
+|       ProceduresScreen.tsx
+|       SearchScreen.tsx
+|       SettingsScreen.tsx
+|       
++---services
+|   |   backupService.ts
+|   |   caseService.ts
+|   |   courseService.ts
+|   |   googleDriveService.ts
+|   |   hospitalService.ts
+|   |   index.ts
+|   |   investigationService.ts
+|   |   lectureService.ts
+|   |   logService.ts
+|   |   managementService.ts
+|   |   mediaService.ts
+|   |   patientService.ts
+|   |   procedureService.ts
+|   |   progressNoteService.ts
+|   |   settingsService.ts
+|   |   
+|   \---db
+|           database.ts
+|           syncQueue.ts
+|           
++---settings
+|   +---components
+|   |       BackupSettingsSheet.tsx
+|   |       SettingsRow.tsx
+|   |       
+|   \---sections
+|           AboutSection.tsx
+|           AISection.tsx
+|           AppearanceSection.tsx
+|           BehaviorSection.tsx
+|           DoctorInfoSection.tsx
+|           HospitalSection.tsx
+|           StorageSection.tsx
+|           SyncSection.tsx
+|           
+\---test
+        example.test.ts
+        setup.ts
+        
