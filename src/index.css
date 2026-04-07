@@ -88,13 +88,13 @@
     --shadow-elevated: 0 10px 25px hsla(0, 0%, 0%, 0.3);
 
     /* Custom component variables — dark */
-    --card-bg: #1E293B;
-    --field-bg: #0F172A;
+    --card-bg: #1E2433;
+    --field-bg: #151C2C;
     --text-dark: #F1F5F9;
     --text-mid: #CBD5E1;
     --text-muted: #94A3B8;
-    --border-c: #334155;
-    --section-bg: #1E293B;
+    --border-c: #2A3042;
+    --section-bg: #1E2433;
   }
 }
 
