@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Hospital, Stethoscope } from 'lucide-react';
+import { Search, Hospital } from 'lucide-react';
 import { BarChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ComposedChart, LabelList } from 'recharts';
+import AIInsightsTab, { type InsightState, type InsightsResult } from '@/components/AIInsightsTab';
 import { patientService } from '@/services/patientService';
 import { caseService } from '@/services/caseService';
 import { hospitalService } from '@/services/hospitalService';
@@ -109,7 +110,8 @@ const StatsTab = () => {
 const CasesScreen = () => {
   const [activeTab, setActiveTab] = useState('list');
   const [searchQuery, setSearchQuery] = useState('');
-  const [insightState, setInsightState] = useState<'ready' | 'loading' | 'done'>('ready');
+  const [insightState, setInsightState] = useState<InsightState>('ready');
+  const [insightResult, setInsightResult] = useState<InsightsResult | null>(null);
   const [cases, setCases] = useState<Case[]>([]);
   const [allCases, setAllCases] = useState<Case[]>([]);
   const [patients, setPatients] = useState<Record<string, Patient>>({});
@@ -253,34 +255,12 @@ const CasesScreen = () => {
         )}
         {activeTab === 'stats' && <StatsTab />}
         {activeTab === 'insights' && (
-          <div className="space-y-3 py-4 animate-fade-in">
-            {insightState === 'ready' && (
-              <div className="p-10 flex flex-col items-center text-center">
-                <button onClick={() => setInsightState('loading')} className="w-16 h-16 bg-[#2563EB]/10 rounded-full flex items-center justify-center mb-4 active:scale-90 transition-transform">
-                  <Stethoscope size={32} className="text-[#2563EB] animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]" />
-                </button>
-                <h5 className="text-[16px] font-bold" style={{ color: '#1A2332' }}>Start Analysis</h5>
-                <p className="text-[13px] mt-1 max-w-[220px]" style={{ color: '#6B7C93' }}>Tap to generate today's clinical summaries</p>
-              </div>
-            )}
-            {insightState === 'loading' && (
-              <div className="p-10 flex flex-col items-center text-center opacity-60">
-                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-                  <Stethoscope size={32} className="text-muted-foreground animate-spin" style={{ animationDuration: '3s' }} />
-                </div>
-                <h5 className="text-[16px] font-bold" style={{ color: '#6B7C93' }}>AI Analysis in Progress</h5>
-                <div className="mt-4 flex gap-1">
-                  {[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: `${i*0.3}s` }} />)}
-                </div>
-              </div>
-            )}
-            {insightState === 'done' && (
-              <div className="p-6 text-center">
-                <p className="text-[13px] text-muted-foreground">AI Insights require an API key.</p>
-                <button onClick={() => navigate('/settings')} className="mt-2 text-[13px] text-primary font-semibold">Go to Settings →</button>
-              </div>
-            )}
-          </div>
+          <AIInsightsTab
+            insightState={insightState}
+            result={insightResult}
+            onStateChange={setInsightState}
+            onResultChange={setInsightResult}
+          />
         )}
       </div>
     </div>

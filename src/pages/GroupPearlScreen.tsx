@@ -1,13 +1,18 @@
-import React, { useState } from 'react'; // v2
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, AlertCircle, SearchX, RefreshCw } from 'lucide-react';
+import { Loader2, AlertCircle, SearchX, RefreshCw, Settings } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, subWeeks, subMonths, subYears } from 'date-fns';
+import { aiService } from '@/services/ai/aiService';
+import { caseService } from '@/services/caseService';
+import { getErrorMessage } from '@/services/ai/aiErrorHandler';
+import { AIError } from '@/types/ai.types';
+import type { GroupPearlResponse } from '@/types/ai.types';
 
 type TimePeriod = 'last_week' | 'last_month' | 'last_3_months' | 'last_6_months' | 'last_year' | 'all_time' | 'custom';
 type Outcome = 'all' | 'active' | 'improved' | 'died';
@@ -96,25 +101,87 @@ const GroupPearlScreen = () => {
 
   // Screen state
   const [screenState, setScreenState] = useState<ScreenState>('empty');
+  const [result, setResult] = useState<GroupPearlResponse | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string>('');
+  const abortRef = useRef<AbortController | null>(null);
 
   const hasFilters = diagnosis.trim() !== '' || timePeriod !== null || outcome !== null;
 
   const handleGenerate = async () => {
-    if (!hasFilters) {
-      setShowValidation(true);
-      return;
-    }
+    if (!hasFilters) { setShowValidation(true); return; }
     setShowValidation(false);
     setScreenState('loading');
-    // Check for API key in settings
-    const { settingsService } = await import('@/services/settingsService');
-    const apiKey = await settingsService.get('aiApiKey');
-    if (!apiKey) {
+    setResult(null);
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+
+    try {
+      // Build date range from filters
+      const now = new Date();
+      let fromDate: Date | undefined;
+      if (timePeriod === 'last_week')      fromDate = subWeeks(now, 1);
+      else if (timePeriod === 'last_month')     fromDate = subMonths(now, 1);
+      else if (timePeriod === 'last_3_months')  fromDate = subMonths(now, 3);
+      else if (timePeriod === 'last_6_months')  fromDate = subMonths(now, 6);
+      else if (timePeriod === 'last_year')      fromDate = subYears(now, 1);
+      else if (timePeriod === 'custom')         fromDate = customFrom;
+
+      // Fetch matching cases
+      const allCases = await caseService.getAll();
+      let filtered = allCases;
+
+      // Filter by diagnosis
+      if (diagnosis.trim()) {
+        const q = diagnosis.toLowerCase();
+        filtered = filtered.filter(c =>
+          c.provisional_diagnosis?.toLowerCase().includes(q) ||
+          c.final_diagnosis?.toLowerCase().includes(q) ||
+          c.chief_complaint?.toLowerCase().includes(q)
+        );
+      }
+
+      // Filter by time period
+      if (fromDate) {
+        filtered = filtered.filter(c => new Date(c.admission_date) >= fromDate!);
+      }
+      if (timePeriod === 'custom' && customTo) {
+        filtered = filtered.filter(c => new Date(c.admission_date) <= customTo!);
+      }
+
+      // Filter by outcome
+      if (outcome && outcome !== 'all') {
+        if (outcome === 'active') {
+          filtered = filtered.filter(c => c.status === 'active');
+        } else if (outcome === 'improved') {
+          filtered = filtered.filter(c =>
+            c.status === 'discharged' &&
+            c.discharge_outcome &&
+            ['cured', 'followup', 'homecare'].includes(c.discharge_outcome)
+          );
+        } else if (outcome === 'died') {
+          filtered = filtered.filter(c => c.discharge_outcome === 'died');
+        }
+      }
+
+      if (filtered.length === 0) {
+        setScreenState('no_cases');
+        return;
+      }
+
+      const filters = { diagnosis, timePeriod, outcome, fromDate: fromDate?.toISOString(), toDate: customTo?.toISOString() };
+      const response = await aiService.generateGroupPearl(
+        filtered.slice(0, 20).map(c => c.id),
+        filters,
+        { signal: abortRef.current.signal }
+      );
+      setResult(response);
+      setScreenState('results');
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return;
+      const msg = e instanceof AIError ? getErrorMessage(e) : 'Analysis failed. Please try again.';
+      setErrorMsg(msg);
       setScreenState('error');
-      return;
     }
-    // Real AI call would go here
-    setTimeout(() => setScreenState('results'), 2500);
   };
 
   const getTimePeriodLabel = () => {
@@ -280,20 +347,17 @@ const GroupPearlScreen = () => {
                 <AlertCircle className="text-destructive" size={28} />
               </div>
               <p className="text-sm font-semibold text-foreground">Something went wrong</p>
-              <p className="text-xs text-muted-foreground mt-1 text-center px-8">
-                Could not complete analysis. Please check your connection and try again.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4 rounded-xl gap-2"
-                onClick={() => {
-                  setScreenState('empty');
-                }}
-              >
-                <RefreshCw size={14} />
-                Try Again
-              </Button>
+              <p className="text-xs text-muted-foreground mt-1 text-center px-8">{errorMsg || 'Could not complete analysis.'}</p>
+              <div className="flex gap-2 mt-4">
+                <Button variant="outline" size="sm" className="rounded-xl gap-2"
+                  onClick={() => navigate('/settings')}>
+                  <Settings size={14} /> Settings
+                </Button>
+                <Button variant="outline" size="sm" className="rounded-xl gap-2"
+                  onClick={() => setScreenState('empty')}>
+                  <RefreshCw size={14} /> Try Again
+                </Button>
+              </div>
             </div>
           )}
 
@@ -318,7 +382,7 @@ const GroupPearlScreen = () => {
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold text-foreground">Summary</h3>
                   <Badge className="bg-primary/10 text-primary border-0 text-[10px] font-semibold hover:bg-primary/10">
-                    {mockResults.caseCount} cases
+                    cases
                   </Badge>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -338,14 +402,14 @@ const GroupPearlScreen = () => {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">{mockResults.summary}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">{result?.summary ?? ''}</p>
               </div>
 
               {/* Common Patterns Card */}
               <div className="bg-card rounded-[18px] shadow-card p-4 border border-border/50 space-y-3">
                 <h3 className="text-sm font-bold text-foreground">📊 Common Patterns</h3>
                 <ul className="space-y-2">
-                  {mockResults.patterns.map((pattern, i) => (
+                  {(result?.patterns ?? []).map((pattern, i) => (
                     <li key={i} className="flex gap-2 text-xs text-muted-foreground leading-relaxed">
                       <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
                       {pattern}
@@ -357,37 +421,23 @@ const GroupPearlScreen = () => {
               {/* Comparison Card */}
               <div className="bg-card rounded-[18px] shadow-card p-4 border border-border/50 space-y-3">
                 <h3 className="text-sm font-bold text-foreground">⚖️ Comparison</h3>
-                {/* Improved */}
-                <div className="rounded-xl bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/50 p-3 space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs">✅</span>
-                    <span className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wide">
-                      Improved
-                    </span>
+                {(result?.comparison?.betweenCases ?? []).map((item, i) => (
+                  <div key={i} className="rounded-xl bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/50 p-3">
+                    <p className="text-xs text-green-800 dark:text-green-300/80 leading-relaxed">{item}</p>
                   </div>
-                  <p className="text-xs text-green-800 dark:text-green-300/80 leading-relaxed">
-                    {mockResults.comparison.improved}
-                  </p>
-                </div>
-                {/* Not Improved */}
-                <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 p-3 space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs">⚠️</span>
-                    <span className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
-                      Not Improved
-                    </span>
+                ))}
+                {(result?.comparison?.withLiterature ?? []).map((item, i) => (
+                  <div key={i} className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 p-3">
+                    <p className="text-xs text-amber-800 dark:text-amber-300/80 leading-relaxed">{item}</p>
                   </div>
-                  <p className="text-xs text-amber-800 dark:text-amber-300/80 leading-relaxed">
-                    {mockResults.comparison.notImproved}
-                  </p>
-                </div>
+                ))}
               </div>
 
               {/* Clinical Pearls Card */}
               <div className="bg-card rounded-[18px] shadow-card p-4 border border-border/50 space-y-3">
                 <h3 className="text-sm font-bold text-foreground">💡 Clinical Pearls</h3>
                 <div className="space-y-2">
-                  {mockResults.pearls.map((pearl, i) => (
+                  {(result?.clinicalPearls ?? []).map((pearl, i) => (
                     <div
                       key={i}
                       className="rounded-xl bg-accent/50 border-l-[3px] border-l-primary p-3"
@@ -402,47 +452,30 @@ const GroupPearlScreen = () => {
               <div className="bg-card rounded-[18px] shadow-card p-4 border border-border/50 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold text-foreground">🌐 Disease Review</h3>
-                  <span className="text-[10px] text-muted-foreground font-medium">
-                    {mockResults.diseaseReview.source}
-                  </span>
+
                 </div>
                 <div className="space-y-3">
-                  {([
-                    { key: 'definition' as const, label: 'Definition', isRed: false },
-                    { key: 'symptoms' as const, label: 'Symptoms', isRed: false },
-                    { key: 'diagnosis' as const, label: 'Diagnosis', isRed: false },
-                    { key: 'treatment' as const, label: 'Treatment', isRed: false },
-                    { key: 'redFlags' as const, label: 'Red Flags', isRed: true },
-                    { key: 'latestGuidelines' as const, label: 'Latest Guidelines', isRed: false },
-                  ]).map(({ key, label, isRed }) => (
-                    <div
-                      key={key}
-                      className={cn(
-                        'rounded-xl p-3 space-y-1',
-                        isRed
-                          ? 'bg-destructive/8 dark:bg-destructive/15'
-                          : 'bg-muted/40'
-                      )}
-                    >
-                      <p
-                        className={cn(
-                          'text-[10px] font-bold uppercase tracking-wider',
-                          isRed ? 'text-destructive' : 'text-primary'
-                        )}
-                      >
-                        {label}
-                      </p>
-                      <p className={cn(
-                        'text-xs leading-relaxed',
-                        isRed ? 'text-destructive/80 dark:text-destructive/70' : 'text-muted-foreground'
-                      )}>
-                        {mockResults.diseaseReview[key]}
-                      </p>
+                  {(result?.diseaseReview?.keyPoints ?? []).map((point, i) => (
+                    <div key={i} className="rounded-xl p-3 bg-muted/40">
+                      <p className="text-xs text-muted-foreground leading-relaxed">{point}</p>
                     </div>
                   ))}
+                  {(result?.diseaseReview?.references ?? []).length > 0 && (
+                    <div className="rounded-xl p-3 bg-primary/5 border border-primary/10">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">References</p>
+                      {(result?.diseaseReview?.references ?? []).map((ref, i) => (
+                        <p key={i} className="text-xs text-muted-foreground">• {ref}</p>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
+          )}
+          {screenState === 'results' && result?.disclaimer && (
+            <p className="text-[11px] text-muted-foreground text-center px-4 pb-4 leading-relaxed">
+              ⚕️ {result.disclaimer}
+            </p>
           )}
       </div>
   );

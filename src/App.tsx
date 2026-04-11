@@ -104,6 +104,9 @@ const App = () => (
           <Route path="/patient/:id/edit" element={<EditPatientScreen />} />
           <Route path="/hospital/new" element={<AddHospitalScreen />} />
           <Route path="/settings" element={<SettingsScreen />} />
+          <Route path="/case/:id/pearl" element={<CasePearlScreen />} />
+          <Route path="/get-api-key" element={<GetAPIKeyScreen />} />
+          <Route path="/ai-settings" element={<AISettings />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
