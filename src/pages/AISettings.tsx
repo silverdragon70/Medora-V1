@@ -2,7 +2,7 @@ import {
   ArrowLeft, Bot, Key, Brain, Languages, Zap, ChevronRight,
   Eye, EyeOff, Check, FileText, Loader2, Trash2, Clock, HelpCircle
 } from "lucide-react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -100,7 +100,7 @@ const AISettings = () => {
   const [isTesting,           setIsTesting]           = useState(false);
 
   // Load settings from Dexie on mount
-  React.useEffect(() => {
+  useEffect(() => {
     const load = async () => {
       const [provider, model, key, features, preview, limit] = await Promise.all([
         settingsService.get('aiProvider'),
