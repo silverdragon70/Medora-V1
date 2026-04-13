@@ -74,6 +74,7 @@ const CasePearlScreen = () => {
 
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
+  const [rawError,    setRawError]    = useState<string | null>(null);
   const [data,        setData]        = useState<CasePearlResponse | null>(null);
   const [stepIndex,   setStepIndex]   = useState(0);
   const [steps,       setSteps]       = useState(LOADING_STEPS);
@@ -105,9 +106,12 @@ const CasePearlScreen = () => {
       setData(result);
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
+      const raw = e instanceof Error ? e.message : String(e);
       const msg = e instanceof AIError ? getErrorMessage(e) : 'Analysis failed. Please try again.';
       setError(msg);
+      setRawError(raw);
       toast.error(msg);
+      console.error('[CasePearl Error]', raw);
     } finally {
       clearInterval(stepInterval);
       setLoading(false);
@@ -151,6 +155,11 @@ const CasePearlScreen = () => {
           <div className="flex flex-col items-center justify-center py-16">
             <AlertCircle size={40} className="text-red-500 mb-4" />
             <p className="text-[14px] text-foreground text-center mb-2">{error}</p>
+            {rawError && (
+              <div className="mt-3 mx-4 px-3 py-2 rounded-xl bg-red-50 border border-red-200 w-full max-w-sm">
+                <p className="text-[11px] font-mono text-red-600 break-all">{rawError}</p>
+              </div>
+            )}
             <div className="flex gap-3 mt-4">
               <button onClick={() => navigate('/settings')}
                 className="px-4 py-2.5 rounded-xl text-[13px] font-semibold border border-border text-muted-foreground hover:bg-muted transition-colors flex items-center gap-1.5">
