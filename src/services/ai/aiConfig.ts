@@ -1,9 +1,5 @@
-// ══════════════════════════════════════════════════════════════════════════════
-// aiConfig.ts — AI Provider Configurations
-// ══════════════════════════════════════════════════════════════════════════════
-
 export const GEMINI_CONFIG = {
-  defaultModel: 'gemini-1.5-flash',
+  defaultModel: 'gemini-1.5-flash-latest',
   temperature: 0.1,
   maxOutputTokens: 8192,
   endpoint: (model: string, apiKey: string) =>
@@ -20,8 +16,9 @@ export const HUGGINGFACE_CONFIG = {
 
 export const PROVIDER_MODELS: Record<string, string[]> = {
   gemini: [
-    'gemini-1.5-flash',
-    'gemini-1.5-pro',
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-pro-latest',
+    'gemini-2.0-flash',
   ],
   huggingface: [
     'meta-llama/Llama-3.1-70B-Instruct',
@@ -51,7 +48,7 @@ export const PROVIDER_MODELS: Record<string, string[]> = {
 };
 
 export const DEFAULT_MODELS: Record<string, string> = {
-  gemini:      'gemini-1.5-flash',
+  gemini:      'gemini-1.5-flash-latest',
   huggingface: 'meta-llama/Llama-3.1-70B-Instruct',
   anthropic:   'claude-3-haiku-20240307',
   openai:      'gpt-4o-mini',
@@ -61,8 +58,8 @@ export const DEFAULT_MODELS: Record<string, string> = {
 };
 
 export const API_ENDPOINTS: Record<string, string> = {
-  anthropic:   'https://api.anthropic.com/v1/messages',
-  openai:      'https://api.openai.com/v1/chat/completions',
-  groq:        'https://api.groq.com/openai/v1/chat/completions',
-  openrouter:  'https://openrouter.ai/api/v1/chat/completions',
+  anthropic:  'https://api.anthropic.com/v1/messages',
+  openai:     'https://api.openai.com/v1/chat/completions',
+  groq:       'https://api.groq.com/openai/v1/chat/completions',
+  openrouter: 'https://openrouter.ai/api/v1/chat/completions',
 };

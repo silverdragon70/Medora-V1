@@ -1,17 +1,17 @@
-// ══════════════════════════════════════════════════════════════════════════════
-// GeminiAdapter.ts — Google Gemini API Adapter
-// ══════════════════════════════════════════════════════════════════════════════
-
 import type { AIProviderAdapter } from './AIProviderAdapter';
 import { GEMINI_CONFIG } from '../aiConfig';
 
 export class GeminiAdapter implements AIProviderAdapter {
   readonly providerId = 'gemini';
-  readonly defaultModel = GEMINI_CONFIG.defaultModel;
-  readonly availableModels = ['gemini-1.5-flash', 'gemini-1.5-pro'];
+  readonly defaultModel = 'gemini-1.5-flash-latest';
+  readonly availableModels = [
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-pro-latest',
+    'gemini-2.0-flash',
+  ];
 
   getEndpoint(model: string, apiKey: string): string {
-    return GEMINI_CONFIG.endpoint(model, apiKey);
+    return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   }
 
   getHeaders(_apiKey: string): Record<string, string> {
