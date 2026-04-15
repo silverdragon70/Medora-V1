@@ -2,7 +2,7 @@
 
 ## Overview
 
-During the testing and integration of the AI features (CasePearl, Insights, GroupPearl), several issues were identified relating to the Gemini API connectivity and AI service configuration. This document outlines the core problems encountered and the comprehensive fixes applied to restore and stabilize the AI functionality.
+During the testing and integration of the AI features (CasePearl, Insights, GroupPearl), several issues were identified relating to both the Gemini and Hugging Face API connectivity and AI service configurations. This document outlines the core problems encountered across the AI providers, and the comprehensive fixes applied to restore and stabilize the ecosystem.
 
 ## Identified Problems
 
@@ -12,12 +12,15 @@ During the testing and integration of the AI features (CasePearl, Insights, Grou
 ### 2. Outdated Gemini Model Definitions
 **Issue:** The application was configured to use older, potentially deprecated model identifiers (e.g., `gemini-1.5-flash` and `gemini-1.5-pro`). This restricted access to the latest capabilities from Google and increased the risk of API-level generation failures.
 
-### 3. Lack of Comprehensive AI Service Testing
+### 3. Hugging Face Serverless API Deprecation
+**Issue:** The application's `HuggingFaceAdapter` relied on the legacy Serverless Inference infrastructure (`api-inference.huggingface.co/models/...`). Hugging Face completely decommissioned this older routing protocol, meaning any requests directed to it were bouncing back with HTTP `410 Gone` or unsupported errors. Furthermore, the adapter was formulating its `fetch` HTTP body utilizing the legacy `{ inputs: prompt }` field style, which is fundamentally unsupported by modern routers.
+
+### 4. Lack of Comprehensive AI Service Testing
 **Issue:** The AI module lacked an exhaustive testing structure, making it difficult to pinpoint exactly where data retrieval, caching, or rate limiting was failing silently when evaluating features.
 
 ## Applied Fixes
 
-### 1. Adapter Endpoint Hardening
+### 1. Gemini Adapter Endpoint Hardening
 **Fix:** Refactored the `GeminiAdapter.ts` to compute and construct the proper, current Google API endpoint structure internally:
 ```typescript
 getEndpoint(model: string, apiKey: string): string {
@@ -33,14 +36,28 @@ getEndpoint(model: string, apiKey: string): string {
 - Added support for `gemini-3.1-pro-preview` for complex, high-reasoning tasks.
 - Appended `gemini-2.0-flash` as a stable fallback.
 
-### 3. Exhaustive Testing Suite Integration
-**Fix:** Created a comprehensive automated testing framework covering all critical aspects of the AI service flow. Robust tests were added across the test suite:
-- **Adapters (`aiAdapters.test.ts`)**: Ensuring API responses map accurately.
-- **Caching (`aiCache.test.ts`)**: Validating deterministic retrieval of identical cached prompts.
-- **De-identification (`aiDeidentify.test.ts`)**: Ensuring robust safeguards so no PHI escapes the local environment.
-- **Error Handling & Rate Limits (`aiErrorHandler.test.ts`, `aiRateLimiter.test.ts`)**: Stress testing how the system gracefully handles API quotas, timeouts, and network outages.
-- **Service & Prompts (`aiService.test.ts`, `aiPrompts.test.ts`)**: Verifying the prompt assembly and core service abstraction layer functionality.
+### 3. Hugging Face Inference Router Migration
+**Fix:** Refactored the `HuggingFaceAdapter` entirely to integrate and communicate cleanly with the updated Inference Providers router network:
+- **Base URL System:** Hardcoded `aiConfig.ts` to route all Hugging Face token requests to the standard, highly-available unified endpoint router: `https://router.huggingface.co/v1/chat/completions`.
+- **Payload Schema Restructuring:** Replaced the legacy input mappings entirely. The adapter now bridges system prompts using the identical HTTP POST message array structures native to OpenAI.
+```typescript
+getRequestBody(prompt: string, model: string): any {
+  return {
+    model: model,
+    messages: [{ role: 'user', content: prompt }],
+    temperature: HUGGINGFACE_CONFIG.temperature,
+    max_tokens: HUGGINGFACE_CONFIG.maxTokens,
+  };
+}
+```
+- **Response Parsing Restructuring:** Hardened output parsing to safely capture content across nested choice JSON responses (`response?.choices?.[0]?.message?.content`).
+
+### 4. Exhaustive Testing Suite Integration & Live API Telemetry
+**Fix:** Created a comprehensive automated testing framework encompassing all critical aspects of the AI service logic and verified via multi-level metrics:
+- **Unit Test Adapters (`aiAdapters.test.ts`)**: Upgraded vitest logic specifically validating adapter stringifications. Ensured that `getRequestBody` correctly formed messages and `parseResponse` safely accessed choice arrays without errors for Hugging Face.
+- **Live Diagnostics via Isolation (`scratch_hf_test.ts`)**: Independently built and orchestrated an isolated testing script strictly running the native `HuggingFaceAdapter.ts` layer decoupled from React context. Passed a live Hugging Face User Access Token which flawlessly triggered the router under `meta-llama/Llama-3.1-70B-Instruct`, returning `testConnection: true` and fetching an un-mocked response generation demonstrating network validity perfectly.
+- **Internal Safety Nets**: Added comprehensive logic tracing across internal caching (`aiCache.test.ts`), strict safeguards against PHI leaking (`aiDeidentify.test.ts`), and high-traffic rate limits handling (`aiErrorHandler.test.ts`, `aiRateLimiter.test.ts`).
 
 ## Conclusion
 
-The deployment of these fixes successfully resolved the connectivity failures (the "Gemini `_failed`" issue), upgraded the system's foundational model offerings, and fortified the AI infrastructure with rigorous automated testing. The Medical Logbook AI integration is now stable, leverages highly capable next-generation models, and is fully observable through the new test suite cases.
+The deployment of these fixes successfully resolved the connectivity failures across both providers (the "Gemini `_failed`" issue, and Hugging Face's Endpoint Decommissioning protocol), upgraded the system's foundational model offerings, and fortified the entire module's architecture with rigorous automated testing. The Medical Logbook HTTP AI adapter is incredibly resilient, reliably consuming next-generation conversational models via modernized schemas, and its behavior is 100% observable.
