@@ -225,3 +225,46 @@ describe('aiConfig', () => {
     });
   });
 });
+
+import { testConnection } from '@/services/ai/aiService';
+
+describe('aiService adapter', () => {
+  let originalFetch: typeof global.fetch;
+
+  beforeEach(() => {
+    originalFetch = global.fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('anthropic adapter formats headers and body correctly', async () => {
+    let capturedRequest: RequestInit | undefined;
+    
+    global.fetch = vi.fn().mockImplementation(async (url: any, init: RequestInit) => {
+      capturedRequest = init;
+      return {
+        ok: true,
+        json: async () => ({
+          content: [{ text: 'OK' }]
+        })
+      };
+    });
+
+    await testConnection('anthropic', 'test-key', 'claude-3-haiku-20240307');
+
+    expect(global.fetch).toHaveBeenCalled();
+    const headers = capturedRequest?.headers as Record<string, string>;
+    expect(headers['x-api-key']).toBe('test-key');
+    expect(headers['anthropic-version']).toBe('2023-06-01');
+    expect(headers['anthropic-dangerous-direct-browser-access']).toBe('true');
+    expect(headers['Authorization']).toBeUndefined();
+
+    const body = JSON.parse(capturedRequest?.body as string);
+    expect(body.model).toBe('claude-3-haiku-20240307');
+    expect(body.max_tokens).toBe(4096);
+    expect(body.messages[0].role).toBe('user');
+    expect(body.messages[0].content).toBe('Say OK');
+  });
+});

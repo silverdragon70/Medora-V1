@@ -40,11 +40,20 @@ const createOpenAICompatibleAdapter = (providerId: string): AIProviderAdapter =>
   defaultModel: '',
   availableModels: [],
   getEndpoint: () => API_ENDPOINTS[providerId] ?? '',
-  getHeaders: (apiKey) => ({
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${apiKey}`,
-    ...(providerId === 'anthropic' ? { 'anthropic-version': '2023-06-01', 'x-api-key': apiKey } : {}),
-  }),
+  getHeaders: (apiKey) => {
+    if (providerId === 'anthropic') {
+      return {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      };
+    }
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    };
+  },
   getRequestBody: (prompt, model) => {
     if (providerId === 'anthropic') {
       return { model, max_tokens: 4096, messages: [{ role: 'user', content: prompt }] };
