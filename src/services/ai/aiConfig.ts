@@ -1,5 +1,5 @@
 export const GEMINI_CONFIG = {
-  defaultModel: 'gemini-1.5-flash-latest',
+  defaultModel: 'gemini-3-flash-preview',
   temperature: 0.1,
   maxOutputTokens: 8192,
   endpoint: (model: string, apiKey: string) =>
@@ -16,8 +16,8 @@ export const HUGGINGFACE_CONFIG = {
 
 export const PROVIDER_MODELS: Record<string, string[]> = {
   gemini: [
-    'gemini-1.5-flash-latest',
-    'gemini-1.5-pro-latest',
+    'gemini-3-flash-preview',
+    'gemini-3.1-pro-preview',
     'gemini-2.0-flash',
   ],
   huggingface: [
@@ -48,7 +48,7 @@ export const PROVIDER_MODELS: Record<string, string[]> = {
 };
 
 export const DEFAULT_MODELS: Record<string, string> = {
-  gemini:      'gemini-1.5-flash-latest',
+  gemini:      'gemini-3-flash-preview',
   huggingface: 'meta-llama/Llama-3.1-70B-Instruct',
   anthropic:   'claude-3-haiku-20240307',
   openai:      'gpt-4o-mini',

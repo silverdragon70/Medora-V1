@@ -3,10 +3,10 @@ import { GEMINI_CONFIG } from '../aiConfig';
 
 export class GeminiAdapter implements AIProviderAdapter {
   readonly providerId = 'gemini';
-  readonly defaultModel = 'gemini-1.5-flash-latest';
+  readonly defaultModel = 'gemini-3-flash-preview';
   readonly availableModels = [
-    'gemini-1.5-flash-latest',
-    'gemini-1.5-pro-latest',
+    'gemini-3-flash-preview',
+    'gemini-3.1-pro-preview',
     'gemini-2.0-flash',
   ];
 
