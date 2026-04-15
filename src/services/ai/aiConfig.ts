@@ -10,8 +10,8 @@ export const HUGGINGFACE_CONFIG = {
   defaultModel: 'meta-llama/Llama-3.1-70B-Instruct',
   temperature: 0.1,
   maxTokens: 4096,
-  endpoint: (model: string) =>
-    `https://api-inference.huggingface.co/models/${model}`,
+  endpoint: (_model: string) =>
+    `https://router.huggingface.co/v1/chat/completions`,
 };
 
 export const PROVIDER_MODELS: Record<string, string[]> = {

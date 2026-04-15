@@ -21,20 +21,17 @@ export class HuggingFaceAdapter implements AIProviderAdapter {
     };
   }
 
-  getRequestBody(prompt: string, _model: string): any {
+  getRequestBody(prompt: string, model: string): any {
     return {
-      inputs: prompt,
-      parameters: {
-        temperature: HUGGINGFACE_CONFIG.temperature,
-        max_new_tokens: HUGGINGFACE_CONFIG.maxTokens,
-        return_full_text: false,
-      },
+      model: model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: HUGGINGFACE_CONFIG.temperature,
+      max_tokens: HUGGINGFACE_CONFIG.maxTokens,
     };
   }
 
   parseResponse(response: any): string {
-    if (Array.isArray(response)) return response[0]?.generated_text ?? '';
-    return response?.generated_text ?? response?.text ?? '';
+    return response?.choices?.[0]?.message?.content ?? '';
   }
 
   async callAPI(prompt: string, apiKey: string, model?: string, signal?: AbortSignal): Promise<string> {

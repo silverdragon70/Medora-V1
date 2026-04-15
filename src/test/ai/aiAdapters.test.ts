@@ -93,8 +93,7 @@ describe('HuggingFaceAdapter', () => {
   describe('getEndpoint', () => {
     it('returns HuggingFace inference URL with model', () => {
       const url = adapter.getEndpoint('meta-llama/Llama-3.1-70B-Instruct', 'key');
-      expect(url).toContain('api-inference.huggingface.co');
-      expect(url).toContain('meta-llama/Llama-3.1-70B-Instruct');
+      expect(url).toContain('router.huggingface.co/v1/chat/completions');
     });
   });
 
@@ -107,39 +106,29 @@ describe('HuggingFaceAdapter', () => {
   });
 
   describe('getRequestBody', () => {
-    it('structures body with inputs field', () => {
+    it('structures body with messages field', () => {
       const body = adapter.getRequestBody('Analyze this', 'model-x');
-      expect(body.inputs).toBe('Analyze this');
+      expect(body.model).toBe('model-x');
+      expect(body.messages[0].content).toBe('Analyze this');
     });
 
-    it('includes parameters with temperature and max_new_tokens', () => {
+    it('includes parameters with temperature and max_tokens', () => {
       const body = adapter.getRequestBody('Test', 'model-x');
-      expect(body.parameters).toBeDefined();
-      expect(body.parameters.temperature).toBeDefined();
-      expect(body.parameters.max_new_tokens).toBeDefined();
-      expect(body.parameters.return_full_text).toBe(false);
+      expect(body.temperature).toBeDefined();
+      expect(body.max_tokens).toBeDefined();
     });
   });
 
   describe('parseResponse', () => {
-    it('handles array response format', () => {
-      const response = [{ generated_text: 'Result text' }];
+    it('handles OpenAI style chat completion format', () => {
+      const response = { choices: [{ message: { content: 'Result text' } }] };
       expect(adapter.parseResponse(response)).toBe('Result text');
-    });
-
-    it('handles object response format', () => {
-      const response = { generated_text: 'Result text' };
-      expect(adapter.parseResponse(response)).toBe('Result text');
-    });
-
-    it('handles text field fallback', () => {
-      const response = { text: 'Fallback text' };
-      expect(adapter.parseResponse(response)).toBe('Fallback text');
     });
 
     it('returns empty string for malformed response', () => {
       expect(adapter.parseResponse(null)).toBe('');
       expect(adapter.parseResponse({})).toBe('');
+      expect(adapter.parseResponse({ choices: [] })).toBe('');
     });
   });
 });
