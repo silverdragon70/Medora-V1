@@ -1,70 +1,106 @@
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import { settingsService } from './settingsService';
 import { prepareBackup } from './backupService';
 import type { BackupType } from './backupService';
 import { format } from 'date-fns';
 
-const WEB_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
+const WEB_CLIENT_ID = '271141142279-ec3u3nd5p4fm2mi7uahtoro7eskobpbr.apps.googleusercontent.com';
 const DRIVE_API     = 'https://www.googleapis.com/drive/v3';
 const UPLOAD_API    = 'https://www.googleapis.com/upload/drive/v3';
 const FOLDER_NAME   = 'Medora Backups';
 const SCOPES        = 'https://www.googleapis.com/auth/drive.file email profile';
+
+// On mobile/Capacitor, we use http://localhost/ as it's the app's internal origin
+const REDIRECT_URI = Capacitor.isNativePlatform() 
+  ? 'http://localhost/' 
+  : `${window.location.origin}/`;
 
 let accessToken: string | null = null;
 
 export function getAccessToken(): string | null { return accessToken; }
 export function isSignedIn(): boolean { return !!accessToken; }
 
-// ── Load Google script locally ────────────────────────────────────────────────
-function loadGoogleScript(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (typeof (window as any).google !== 'undefined') { resolve(); return; }
-    const script = document.createElement('script');
-    script.src = '/gsi-client.js';
-    script.async = true;
-    script.onload  = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load Google script'));
-    document.head.appendChild(script);
+// ── Sign In — uses Browser flow ─────────────────────────────────────────────
+export async function signInWithGoogle(): Promise<{ email: string; name: string; token: string }> {
+  return new Promise<{ email: string; name: string; token: string }>(async (resolve, reject) => {
+    try {
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${WEB_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=${encodeURIComponent(SCOPES)}&prompt=select_account`;
+      
+      (window as any)._googleResolve = resolve;
+      (window as any)._googleReject  = reject;
+
+      await Browser.open({ url: authUrl, windowName: '_self' });
+
+      // Safety timeout
+      setTimeout(() => {
+        if ((window as any)._googleResolve) {
+          delete (window as any)._googleResolve;
+          delete (window as any)._googleReject;
+          reject(new Error('Sign-in timed out'));
+        }
+      }, 300000);
+    } catch (e: any) { 
+      delete (window as any)._googleResolve;
+      delete (window as any)._googleReject;
+      reject(e); 
+    }
   });
 }
 
-// ── Sign In — uses popup flow (no redirect needed) ────────────────────────────
-export async function signInWithGoogle(): Promise<{ email: string; name: string; token: string }> {
-  await loadGoogleScript();
-  return new Promise<{ email: string; name: string; token: string }>((resolve, reject) => {
-    try {
-      const client = (window as any).google.accounts.oauth2.initTokenClient({
-        client_id: WEB_CLIENT_ID,
-        scope: SCOPES,
-        callback: async (response: any) => {
-          if (response.error) { reject(new Error(response.error)); return; }
-          accessToken = response.access_token;
-          try {
-            const res  = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-              headers: { Authorization: `Bearer ${accessToken}` },
-            });
-            const info = await res.json();
-            const email = info.email ?? '';
-            const name  = info.name  ?? '';
-            await settingsService.set('googleEmail',    email);
-            await settingsService.set('googleName',     name);
-            await settingsService.set('googleSignedIn', 'true');
-            resolve({ email, name, token: accessToken! });
-          } catch (e) { reject(e); }
-        },
-        error_callback: (err: any) => reject(new Error(err?.message ?? 'OAuth error')),
-      });
-      // requestAccessToken with empty prompt = inline popup inside WebView
-      client.requestAccessToken({ prompt: '' });
-    } catch (e: any) { reject(e); }
+/**
+ * Manually process a URL pasted by the user (fallback)
+ */
+export async function processManualOAuthUrl(url: string): Promise<{ email: string; name: string; token: string }> {
+  const hash = url.split('#')[1];
+  if (!hash) throw new Error('Invalid URL: No token found');
+
+  const params = new URLSearchParams(hash);
+  const token = params.get('access_token');
+  if (!token) throw new Error('Token missing in URL');
+
+  accessToken = token;
+  
+  const res  = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
+  if (!res.ok) throw new Error('Failed to fetch user info');
+  
+  const info = await res.json();
+  const email = info.email ?? '';
+  const name  = info.name  ?? '';
+  
+  await settingsService.set('googleEmail',    email);
+  await settingsService.set('googleName',     name);
+  await settingsService.set('googleSignedIn', 'true');
+  
+  return { email, name, token: accessToken };
+}
+
+/**
+ * Handle the deep link callback from Capacitor (called from App.tsx)
+ */
+export async function handleGoogleOAuthCallback(url: string) {
+  try {
+    await Browser.close();
+  } catch (e) { /* ignore */ }
+  
+  try {
+    const result = await processManualOAuthUrl(url);
+    if ((window as any)._googleResolve) {
+      (window as any)._googleResolve(result);
+    }
+  } catch (e) {
+    if ((window as any)._googleReject) (window as any)._googleReject(e);
+  } finally {
+    delete (window as any)._googleResolve;
+    delete (window as any)._googleReject;
+  }
 }
 
 // ── Sign Out ──────────────────────────────────────────────────────────────────
 export async function signOutGoogle(): Promise<void> {
-  if (accessToken) {
-    (window as any).google?.accounts.oauth2.revoke(accessToken, () => {});
-    accessToken = null;
-  }
+  accessToken = null;
   await settingsService.set('googleSignedIn', 'false');
   await settingsService.set('googleEmail', '');
   await settingsService.set('googleName',  '');

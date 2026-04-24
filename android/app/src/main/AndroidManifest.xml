@@ -23,6 +23,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.medora.app" android:host="oauth" />
+                <data android:scheme="com.googleusercontent.apps.271141142279-ubdb1ge6kmf0vm6del8rmdvpm9fl2sjl" />
+            </intent-filter>
+
         </activity>
 
         <provider
