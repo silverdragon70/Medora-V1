@@ -1,0 +1,52 @@
+Medora Git Rollback Guide
+
+لو عايز ترجع للإصدار القديم (قبل AI):
+
+1) الطريقة الآمنة (تنقل للنسخة القديمة بدون حذف):
+git checkout before-ai-merge
+
+2) الطريقة القوية (ترجع المشروع بالكامل لنقطة قديمة):
+git reset --hard before-ai-merge
+
+3) لو كنت رافع على GitHub وعايز توحده:
+git push --force
+
+مهم:
+- استخدم reset بحذر لأنه بيمسح التعديلات الحالية محلياً
+- الأفضل تبدأ بـ checkout للتجربة
+
+قبل أي تغييرات
+│
+│  237cba4  Dark mode fix - new version
+│
+│
+├── GD_Sync branch
+│
+│  9d11868  fix dark mode issues (GD_Sync)
+│
+│
+├── AI branch بدأ يتطور
+│
+│  6c974ad  Stable version before Google Drive sync  ⭐ (TAG هنا قبل AI)
+│
+│  7672c71  AI work
+│  ecb112c  AI feature start
+│  f98227b  AI fixed
+│  ...
+│
+│
+├── AI وصل لأعلى نقطة
+│
+│  cc0d5df  🚀 FINAL AI state
+│
+│
+├── بعد الدمج (Fast-forward)
+│
+│  main  ───────────────► cc0d5df  (بقى نفس AI)
+│  AI    ───────────────► cc0d5df  (نفس النقطة)
+│
+│
+├── TAGS (نقاط أمان)
+│
+│  before-ai-merge  ───► 6c974ad   ⭐ (قبل AI فعليًا)
+│  after-ai-merge   ───► cc0d5df   (بعد AI)

@@ -5,7 +5,9 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { X, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
+import { X, CheckCircle2, XCircle, RefreshCw, Loader2 } from 'lucide-react';
+import { uploadBackupToDrive } from '@/services/googleDriveService';
+import { settingsService } from '@/services/settingsService';
 
 interface SyncProgressSheetProps {
   open: boolean;
@@ -16,15 +18,6 @@ interface SyncProgressSheetProps {
 
 type State = 'running' | 'success' | 'error';
 
-const steps = [
-  { percent: 10, message: 'Connecting to Google Drive...' },
-  { percent: 30, message: 'Checking for changes...' },
-  { percent: 50, message: 'Uploading new records...' },
-  { percent: 75, message: 'Uploading images...' },
-  { percent: 90, message: 'Verifying upload...' },
-  { percent: 100, message: 'Complete' },
-];
-
 const SyncProgressSheet = ({ open, onOpenChange, email, onComplete }: SyncProgressSheetProps) => {
   const [state, setState] = useState<State>('running');
   const [progress, setProgress] = useState(0);
@@ -32,50 +25,72 @@ const SyncProgressSheet = ({ open, onOpenChange, email, onComplete }: SyncProgre
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [completedTime, setCompletedTime] = useState('');
   const cancelledRef = useRef(false);
+  const syncStartedRef = useRef(false);
 
-  const runSimulation = useCallback(() => {
+  const runActualSync = useCallback(async () => {
+    // Prevent multiple triggers
+    if (syncStartedRef.current) return;
+    syncStartedRef.current = true;
+    
     setState('running');
-    setProgress(0);
+    setProgress(10);
+    setStatusMessage('Preparing your data...');
     cancelledRef.current = false;
-    let stepIndex = 0;
 
-    const runStep = () => {
-      if (cancelledRef.current || stepIndex >= steps.length) return;
-      const step = steps[stepIndex];
-      setStatusMessage(step.message);
-      const startPercent = stepIndex === 0 ? 0 : steps[stepIndex - 1].percent;
-      const endPercent = step.percent;
-      const duration = 500 + Math.random() * 500;
-      const startTime = Date.now();
+    try {
+      // Step 1: Preparation
+      setProgress(25);
+      const backupType = (await settingsService.get('backupType') ?? 'data') as any;
+      if (cancelledRef.current) return;
 
-      const animate = () => {
-        if (cancelledRef.current) return;
-        const t = Math.min((Date.now() - startTime) / duration, 1);
-        setProgress(Math.round(startPercent + (endPercent - startPercent) * t * (2 - t)));
-        if (t < 1) {
-          requestAnimationFrame(animate);
-        } else {
-          stepIndex++;
-          if (stepIndex < steps.length) {
-            setTimeout(runStep, 200);
-          } else {
-            const now = new Date();
-            const timeStr = `Today · ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-            setCompletedTime(timeStr);
-            setState('success');
-            onComplete?.(now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ' · ' + now.toTimeString().slice(0, 5));
-          }
-        }
-      };
-      requestAnimationFrame(animate);
-    };
-    setTimeout(runStep, 300);
+      // Step 2: Upload
+      setStatusMessage('Uploading to Google Drive...');
+      setProgress(50);
+      await uploadBackupToDrive(backupType);
+      
+      if (cancelledRef.current) return;
+
+      // Step 3: Finalize
+      setProgress(90);
+      setStatusMessage('Verifying backup...');
+      
+      const now = new Date();
+      const timeStr = `Today · ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      
+      if (cancelledRef.current) return;
+
+      setProgress(100);
+      setCompletedTime(timeStr);
+      setState('success');
+      
+      const timestamp = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ' · ' + now.toTimeString().slice(0, 5);
+      onComplete?.(timestamp);
+
+    } catch (err: any) {
+      if (!cancelledRef.current) {
+        console.error('Sync Error:', err);
+        setState('error');
+        setStatusMessage(err?.message ?? 'Sync failed. Please check your connection.');
+      }
+    } finally {
+      // Note: we don't reset syncStartedRef to false while open is true 
+      // to prevent re-triggers if a component re-renders.
+    }
   }, [onComplete]);
 
   useEffect(() => {
-    if (open) runSimulation();
-    return () => { cancelledRef.current = true; };
-  }, [open, runSimulation]);
+    if (open) {
+      runActualSync();
+    } else {
+      // Reset for next time it opens
+      syncStartedRef.current = false;
+      setState('running');
+      setProgress(0);
+    }
+    return () => { 
+      cancelledRef.current = true; 
+    };
+  }, [open, runActualSync]);
 
   const handleCancel = () => {
     cancelledRef.current = true;
@@ -104,7 +119,7 @@ const SyncProgressSheet = ({ open, onOpenChange, email, onComplete }: SyncProgre
                 <div className="text-[16px] font-bold mb-1" style={{ color: '#1A2332' }}>Syncing Data...</div>
                 <div className="w-full flex items-center gap-3 my-4">
                   <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: '#F0F4F8' }}>
-                    <div className="h-full rounded-full" style={{ width: `${progress}%`, background: '#2563EB', transition: 'width 0.1s linear' }} />
+                    <div className="h-full rounded-full" style={{ width: `${progress}%`, background: '#2563EB', transition: 'width 0.3s ease-out' }} />
                   </div>
                   <span className="text-[14px] font-bold" style={{ color: '#2563EB', minWidth: 36 }}>{progress}%</span>
                 </div>
@@ -139,9 +154,9 @@ const SyncProgressSheet = ({ open, onOpenChange, email, onComplete }: SyncProgre
               <>
                 <XCircle size={48} style={{ color: '#EF4444' }} className="mb-3" />
                 <div className="text-[16px] font-bold mb-1" style={{ color: '#1A2332' }}>Sync Failed</div>
-                <div className="text-[13px] mb-6" style={{ color: '#6B7C93' }}>{statusMessage}</div>
+                <div className="text-[13px] text-center mb-6 px-4" style={{ color: '#6B7C93' }}>{statusMessage}</div>
                 <button
-                  onClick={runSimulation}
+                  onClick={() => { syncStartedRef.current = false; runActualSync(); }}
                   className="w-full flex items-center justify-center gap-2 rounded-xl font-bold text-white text-[14px] mb-3"
                   style={{ height: 48, background: '#2563EB' }}
                 >
@@ -149,8 +164,8 @@ const SyncProgressSheet = ({ open, onOpenChange, email, onComplete }: SyncProgre
                 </button>
                 <button
                   onClick={() => onOpenChange(false)}
-                  className="w-full rounded-xl font-bold text-white text-[14px]"
-                  style={{ height: 48, background: '#2563EB' }}
+                  className="w-full rounded-xl font-bold text-[#6B7C93] text-[14px]"
+                  style={{ height: 48, background: '#fff', border: '1.5px solid #DDE3EA' }}
                 >
                   Close
                 </button>

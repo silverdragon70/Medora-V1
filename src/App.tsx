@@ -29,6 +29,7 @@ import HospitalPatientsScreen from "./pages/HospitalPatientsScreen";
 import { loadAndApplyAllSettings } from "./lib/applySettings";
 import { DarkModeProvider } from "./lib/DarkModeContext";
 import { checkAndRunScheduledBackup } from "./services/backupService";
+import { handleGoogleOAuthCallback } from "./services/googleDriveService";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +73,33 @@ const BackButtonHandler = () => {
   return null;
 };
 
+const DeepLinkHandler = () => {
+  useEffect(() => {
+    // 1. Handle Web Callback (Initial load with hash)
+    if (window.location.hash && window.location.hash.includes('access_token')) {
+      handleGoogleOAuthCallback(window.location.href);
+      // Clean up URL
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+
+    // 2. Handle Native Deep Link
+    let listener: { remove: () => void } | null = null;
+
+    CapApp.addListener('appUrlOpen', (data: { url: string }) => {
+      console.log('App opened with URL:', data.url);
+      if (data.url.includes('com.medora.app://oauth') || data.url.includes('com.googleusercontent.apps.')) {
+        handleGoogleOAuthCallback(data.url);
+      }
+    }).then(l => { listener = l; });
+
+    return () => { 
+      if (listener) listener.remove(); 
+    };
+  }, []);
+
+  return null;
+};
+
 const App = () => (
   <DarkModeProvider>
   <QueryClientProvider client={queryClient}>
@@ -88,6 +116,7 @@ const App = () => (
       />
       <BrowserRouter>
         <BackButtonHandler />
+        <DeepLinkHandler />
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/" element={<CasesScreen />} />
