@@ -6,6 +6,8 @@ import { signInWithGoogle, signOutGoogle, processManualOAuthUrl } from '@/servic
 import { settingsService } from '@/services/settingsService';
 import { toast } from 'sonner';
 
+import { App } from '@capacitor/app';
+
 const GoogleAccountSheet = ({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) => {
   const [email,       setEmail]       = useState('');
   const [name,        setName]        = useState('');
@@ -15,7 +17,16 @@ const GoogleAccountSheet = ({ open, onOpenChange }: { open: boolean; onOpenChang
   const [manualLink,  setManualLink]  = useState('');
 
   useEffect(() => {
+    // Reset loading state when user returns from browser to the app
+    const sub = App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) setLoading(false);
+    });
+    return () => { sub.remove(); };
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
+    setLoading(false); // Ensure clean state when sheet opens
     Promise.all([
       settingsService.get('googleEmail'),
       settingsService.get('googleName'),
@@ -34,7 +45,9 @@ const GoogleAccountSheet = ({ open, onOpenChange }: { open: boolean; onOpenChang
       setEmail(e); setName(n); setSignedIn(true);
       toast.success('Connected to Google');
     } catch (err: any) {
-      toast.error(`Sign in failed: ${err?.message ?? err}`);
+      if (err?.message !== 'Sign-in timed out') {
+        toast.error(`Sign in failed: ${err?.message ?? err}`);
+      }
     } finally { setLoading(false); }
   };
 
